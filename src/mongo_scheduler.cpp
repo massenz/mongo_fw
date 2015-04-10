@@ -1,9 +1,3 @@
-//
-// Created by Marco Massenzio on 4/6/15.
-//
-
-#include "include/mongo_executor.hpp"
-
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -22,28 +16,9 @@
  * limitations under the License.
  */
 
-#include <libgen.h>
 
-#include <iostream>
-#include <string>
-
-
-#include <mesos/resources.hpp>
-#include <mesos/scheduler.hpp>
-#include <mesos/type_utils.hpp>
-
-#include <stout/check.hpp>
-#include <stout/exit.hpp>
-#include <stout/flags.hpp>
-#include <stout/numify.hpp>
-#include <stout/os.hpp>
-#include <stout/stringify.hpp>
-
-// TODO: parse command-line arguments
-//#include "logging/flags.hpp"
-//#include "logging/logging.hpp"
-
-
+#include "include/mongo_executor.hpp"
+#include "include/mongo_scheduler.hpp"
 
 using std::cerr;
 using std::cout;
@@ -52,60 +27,27 @@ using std::flush;
 using std::string;
 using std::vector;
 
-using mesos::Credential;
-using mesos::ExecutorInfo;
-using mesos::FrameworkID;
-using mesos::MasterInfo;
-using mesos::Offer;
-using mesos::OfferID;
-using mesos::Resources;
-using mesos::Scheduler;
-using mesos::SchedulerDriver;
-using mesos::TaskInfo;
-using mesos::TaskState;
-using mesos::TaskStatus;
 
-const int32_t CPUS_PER_TASK = 1;
-const int32_t MEM_PER_TASK = 128;
-
-class MongoScheduler : public Scheduler
-{
-public:
-	static const std::string REV;
-
-  MongoScheduler(
-      bool _implicitAcknowledgements,
-      const ExecutorInfo& _executor,
-      const string& _role)
-    : implicitAcknowledgements(_implicitAcknowledgements),
-      executor(_executor),
-      role(_role),
-      tasksLaunched(0),
-      tasksFinished(0),
-      totalTasks(5) {}
-
-  virtual ~MongoScheduler() {}
-
-  virtual void registered(SchedulerDriver*,
+  void MongoScheduler::registered(SchedulerDriver*,
                           const FrameworkID&,
                           const MasterInfo&)
   {
     cout << "Registered!" << endl;
   }
 
-  virtual void reregistered(SchedulerDriver* driver,
-		  const MasterInfo& masterInfo) override
+  void MongoScheduler::reregistered(SchedulerDriver* driver,
+		  const MasterInfo& masterInfo)
   {
 	  cout << "Worker came back and reregistered: with master [" << masterInfo.id()
 			  << "] at: " << masterInfo.hostname() << endl;
   }
 
-  virtual void disconnected(SchedulerDriver* driver) override
+  void disconnected(SchedulerDriver* driver)
   {
 	  cout << "Master disconnected" << endl;
   }
 
-  virtual void resourceOffers(SchedulerDriver* driver,
+  void MongoScheduler::resourceOffers(SchedulerDriver* driver,
                               const vector<Offer>& offers)
   {
     foreach (const Offer& offer, offers) {
@@ -147,10 +89,9 @@ public:
     }
   }
 
-  virtual void offerRescinded(SchedulerDriver* driver,
-                              const OfferID& offerId) override {}
 
-  virtual void statusUpdate(SchedulerDriver* driver, const TaskStatus& status) override
+  void MongoScheduler::statusUpdate(SchedulerDriver* driver,
+          const TaskStatus& status)
   {
     int taskId = std::atoi(status.task_id().value().c_str());
 
@@ -181,56 +122,18 @@ public:
     }
   }
 
-  virtual void frameworkMessage(SchedulerDriver* driver,
-                                const mesos::ExecutorID& executorId,
-                                const mesos::SlaveID& slaveId,
-                                const string& data) {}
 
-  virtual void slaveLost(SchedulerDriver* driver, const mesos::SlaveID& sid) {}
-
-  virtual void executorLost(SchedulerDriver* driver,
-                            const mesos::ExecutorID& executorID,
-                            const mesos::SlaveID& slaveID,
-                            int status) {}
-
-  virtual void error(SchedulerDriver* driver, const string& message)
+  void MongoScheduler::error(SchedulerDriver* driver, const string& message)
   {
     cout << message << endl;
   }
 
-private:
-  const bool implicitAcknowledgements;
-  const ExecutorInfo executor;
-  string role;
-  int tasksLaunched;
-  int tasksFinished;
-  int totalTasks;
-};
-
-
-void usage(const char* prog)
-{
-  cerr << "Usage: " << os::basename(prog).get() << " master-ip\n\n" <<
-          "master-ip\tThe Mesos Master IP address (and optionally port), eg: 10.10.2.15:5050" << endl;
-}
 
 const std::string MongoScheduler::REV{"0.0.1"};
 
-int main(int argc, char** argv)
+int run_scheduler(const std::string& uri, const std::string& role,
+                  const std::string& master)
 {
-	if (argc < 2) {
-		usage(argv[0]);
-		exit(1);
-	}
-  // Find this executable's directory to locate executor.
-  string path = os::realpath(dirname(argv[0])).get();
-  string uri = path + "/do_work";
-
-  cout << "MongoExecutor rev. " << MongoScheduler::REV << " starting at: " << uri << '\n';
-
-  // TODO: parse command args flags
-  auto role = "*";
-  auto master = argv[1];
 
   ExecutorInfo executor;
   executor.mutable_executor_id()->set_value("default");
@@ -255,7 +158,7 @@ int main(int argc, char** argv)
     implicitAcknowledgements = false;
   }
 
-  std::shared_ptr<mesos::MesosSchedulerDriver> driver;
+  mesos::MesosSchedulerDriver* driver;
   MongoScheduler scheduler(implicitAcknowledgements, executor, role);
 
   if (os::hasenv("MESOS_AUTHENTICATE")) {
@@ -275,7 +178,7 @@ int main(int argc, char** argv)
 
     framework.set_principal(getenv("DEFAULT_PRINCIPAL"));
 
-    driver = std::make_shared<mesos::MesosSchedulerDriver>(
+    driver = new mesos::MesosSchedulerDriver(
         &scheduler,
         framework,
         master,
@@ -284,7 +187,7 @@ int main(int argc, char** argv)
   } else {
     framework.set_principal("test-framework-cpp");
 
-    driver = std::make_shared<mesos::MesosSchedulerDriver>(
+    driver = new mesos::MesosSchedulerDriver(
         &scheduler,
         framework,
         master,
