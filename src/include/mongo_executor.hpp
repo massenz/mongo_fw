@@ -20,68 +20,73 @@
 #define _MONGOEXECUTOR_H
 
 #include <iostream>
+#include <thread>
 
 #include <mesos/executor.hpp>
 #include <stout/duration.hpp>
 #include <stout/os.hpp>
 
-#include <mesos/executor.hpp>
+
 
 using namespace mesos;
-
-using std::cout;
-using std::endl;
 using std::string;
 
-class MongoExecutor : public mesos::Executor
+class MongoExecutor: public mesos::Executor
 {
 
 public:
-	MongoExecutor() {}
-	virtual ~MongoExecutor() {}
+    static const string REV;
+    // TODO: should this be the full path instead?
+    static const string MONGOD;
 
-  virtual void registered(ExecutorDriver* driver,
-                          const ExecutorInfo& executorInfo,
-                          const FrameworkInfo& frameworkInfo,
-                          const SlaveInfo& slaveInfo)
-  {
-    cout << "Registered executor on " << slaveInfo.hostname() << endl;
-  }
+public:
+    MongoExecutor(const string& _configFile) :
+        // TODO: read pidFileLocation instead from the config file:
+        //      pidFilePath: "/path/to/mongod.pid"
+        pidFileLocation{"/tmp/mongod.pid"}, configFile{_configFile} {}
 
-  virtual void reregistered(ExecutorDriver* driver,
-                            const SlaveInfo& slaveInfo)
-  {
-    cout << "Re-registered executor on " << slaveInfo.hostname() << endl;
-  }
+    virtual ~MongoExecutor() {}
 
-  virtual void disconnected(ExecutorDriver* driver) {}
+    virtual void registered(ExecutorDriver* driver,
+            const ExecutorInfo& executorInfo,
+            const FrameworkInfo& frameworkInfo, const SlaveInfo& slaveInfo)
+                    override;
 
-  virtual void launchTask(ExecutorDriver* driver, const TaskInfo& task)
-  {
-    cout << "Starting task " << task.task_id().value() << endl;
+    virtual void reregistered(ExecutorDriver* driver,
+            const SlaveInfo& slaveInfo) override;
+    virtual void disconnected(ExecutorDriver* driver) override { }
+    virtual void launchTask(ExecutorDriver* driver, const TaskInfo& task)
+            override;
 
-    TaskStatus status;
-    status.mutable_task_id()->MergeFrom(task.task_id());
-    status.set_state(TASK_RUNNING);
+    virtual void killTask(ExecutorDriver* driver, const TaskID& taskId)
+            override { }
 
-    driver->sendStatusUpdate(status);
+    virtual void frameworkMessage(ExecutorDriver* driver, const string& data)
+            override { }
+    virtual void shutdown(ExecutorDriver* driver) override { }
+    virtual void error(ExecutorDriver* driver, const string& message)
+            override { }
 
-    // This is where one would perform the requested task.
+protected:
+    // Retrieves the PID for the running mongod, saved to a file
+    // This takes advantage of mongod's `processManagement.pidFilePath`
+    // configuration variable.
+    long getPid(const string& pidFilename);
 
-    cout << "Finishing task " << task.task_id().value() << endl;
 
-    status.mutable_task_id()->MergeFrom(task.task_id());
-    status.set_state(TASK_FINISHED);
+private:
+    // This is where mongod will store its PID
+    // TODO: this is a statically defined place in the config file, must find
+    //       a way to make it dynamic (or maybe not?)
+    // TODO: right now, we just hard-code it, should read it instead from
+    //      the config files `pidFilePath` entry
+    string pidFileLocation;
 
-    driver->sendStatusUpdate(status);
-  }
-
-  virtual void killTask(ExecutorDriver* driver, const TaskID& taskId) {}
-  virtual void frameworkMessage(ExecutorDriver* driver, const string& data) {}
-  virtual void shutdown(ExecutorDriver* driver) {}
-  virtual void error(ExecutorDriver* driver, const string& message) {}
+    // The location of the configuration file
+    string configFile;
 };
 
-int run_executor();
+int run_executor(const string&);
+void runMongoDb(const string&);
 
 #endif // _MONGOEXECUTOR_H

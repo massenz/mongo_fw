@@ -20,7 +20,7 @@ int main(int argc, char** argv)
     //        what we really want are two distinct binaries
     if (argc < 2) {
         cout << "Invoked by Mesos scheduler to execute binary" << endl;
-        return run_executor();
+        return run_executor("/Users/marco/dev/mongodb/mongod.conf");
     }
 
     // Find this executable's directory to locate executor.

@@ -53,8 +53,8 @@ using mesos::TaskInfo;
 using mesos::TaskState;
 using mesos::TaskStatus;
 
-const int32_t CPUS_PER_TASK = 1;
-const int32_t MEM_PER_TASK = 128;
+const int32_t CPUS_PER_TASK = 2;
+const int32_t MEM_PER_TASK = 512;
 
 class MongoScheduler : public Scheduler
 {
@@ -68,9 +68,7 @@ public:
     : implicitAcknowledgements(_implicitAcknowledgements),
       executor(_executor),
       role(_role),
-      tasksLaunched(0),
-      tasksFinished(0),
-      totalTasks(5) {}
+      launched(false) {}
 
   virtual ~MongoScheduler() {}
 
@@ -107,12 +105,14 @@ public:
   virtual void error(SchedulerDriver* driver, const string& message) override;
 
 private:
+
+  // The resources necessary to run a MongoDb server on a Mesos Slave
+  static const Resources TASK_RESOURCES;
+
   const bool implicitAcknowledgements;
   const ExecutorInfo executor;
   string role;
-  int tasksLaunched;
-  int tasksFinished;
-  int totalTasks;
+  bool launched;
 };
 
 
