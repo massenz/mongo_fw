@@ -27,9 +27,37 @@
 #include <stout/os.hpp>
 
 
-
 using namespace mesos;
 using std::string;
+
+
+class MongoRunner {
+public:
+  static const string CONFIG;
+
+public:
+  MongoRunner(const string& config = CONFIG) : config_(config),
+      pidFilename_("/tmp/mongod.pid"), running_(false) { }
+  virtual ~MongoRunner() {}
+
+  void operator ()();
+
+  // TODO: guard against races for running_
+  bool isRunning() { return running_; }
+
+  // Retrieves the PID for the running mongod, saved to a file
+  // This takes advantage of mongod's `processManagement.pidFilePath`
+  // configuration variable.
+  long getPid();
+
+private:
+  bool validateConfig();
+
+private:
+  string config_;
+  string pidFilename_;
+  bool running_;
+};
 
 class MongoExecutor: public mesos::Executor
 {
@@ -67,13 +95,6 @@ public:
     virtual void error(ExecutorDriver* driver, const string& message)
             override { }
 
-protected:
-    // Retrieves the PID for the running mongod, saved to a file
-    // This takes advantage of mongod's `processManagement.pidFilePath`
-    // configuration variable.
-    long getPid(const string& pidFilename);
-
-
 private:
     // This is where mongod will store its PID
     // TODO: this is a statically defined place in the config file, must find
@@ -87,6 +108,5 @@ private:
 };
 
 int run_executor(const string&);
-void runMongoDb(const string&);
 
 #endif // _MONGOEXECUTOR_H

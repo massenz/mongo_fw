@@ -23,6 +23,11 @@ int main(int argc, char** argv)
         return run_executor("/Users/marco/dev/mongodb/mongod.conf");
     }
 
+    if (argc == 2 && std::strcmp(argv[1], "-h") == 0) {
+        usage(argv[0]);
+        exit(0);
+    }
+
     // Find this executable's directory to locate executor.
     // TODO: parse command args flags
     string uri = os::realpath(argv[0]).get();

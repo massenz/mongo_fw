@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 
-#include "include/mongo_executor.hpp"
-#include "include/mongo_scheduler.hpp"
+#include "mongo_executor.hpp"
+#include "mongo_scheduler.hpp"
 
 using std::cerr;
 using std::cout;
