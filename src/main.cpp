@@ -1,4 +1,12 @@
+// Copyright (c) Marco Massenzio, 2015.  All rights reserved.
+
+
+#include <cstdlib>
 #include <iostream>
+
+#include <stout/flags/flags.hpp>
+
+#include <gtest/gtest.h>
 
 #include "include/mongo_executor.hpp"
 #include "include/mongo_scheduler.hpp"
@@ -7,37 +15,84 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-void usage(const char* prog)
+using std::string;
+
+
+// Program flags, allows user to run the tests (--test) or the Scheduler
+// against a Mesos Master at --master IP:PORT; or the Executor, which will
+// invoke Mongo using the --config FILE configuration file.
+//
+// All the flags are optional, but at least ONE (and at most one) MUST be
+// present.
+class MongoFlags: public flags::FlagsBase
 {
-    cerr << "Usage: " << os::basename(prog).get() << " master-ip\n\n"
-            << "master-ip\tThe Mesos Master IP address (and optionally port), "
-               "eg: 10.10.2.15:5050" << endl;
+public:
+  MongoFlags();
+
+  Option<string> master;
+  Option<string> config;
+  string role;
+  bool test;
+};
+
+MongoFlags::MongoFlags()
+{
+  add(&MongoFlags::master, "master", "The host address of the Mesos Master.");
+  add(&MongoFlags::config, "config", "The location of the configuration file,"
+      " on the Worker node (MUST exist).");
+  add(&MongoFlags::role, "role", "The role for the executor", "*");
+  add(&MongoFlags::test, "test", "Will only run unit tests and exit.", false);
 }
+
+
+void printUsage(const string& prog, const string& flags)
+{
+  cout << "Usage: " << os::basename(prog).get() << " [options]\n\n"
+      "One (and only one) of the following options MUST be present.\n\n"
+      "Options:\n" << flags << endl;
+}
+
+
+int test(int argc, char** argv)
+{
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
 
 int main(int argc, char** argv)
 {
-    // FIXME: this is a hack to work around some Eclipse stupidity,
-    //        what we really want are two distinct binaries
-    if (argc < 2) {
-        cout << "Invoked by Mesos scheduler to execute binary" << endl;
-        return run_executor("/Users/marco/dev/mongodb/mongod.conf");
+  MongoFlags flags;
+  bool help;
+  flags.add(&help, "help", "Prints this help message", false);
+
+  Try<Nothing> load = flags.load(None(), argc, argv);
+
+  if (load.isError()) {
+    std::cerr << "Failed to load flags: " << load.error() << std::endl;
+    return -1;
+  }
+
+  if (!help) {
+    if (flags.test) {
+      cout << "Running unit tests for Playground App\n";
+      return test(argc, argv);
+    }
+    if (flags.config.isSome()) {
+      cout << "Invoked by Mesos scheduler to execute binary" << endl;
+      return run_executor("/Users/marco/dev/mongodb/mongod.conf");
     }
 
-    if (argc == 2 && std::strcmp(argv[1], "-h") == 0) {
-        usage(argv[0]);
-        exit(0);
-    }
+    if (flags.master.isSome()) {
+      string uri = os::realpath(argv[0]).get();
+      auto masterIp = flags.master.get();
+      // TODO(marco): add the --role flag
+      auto role = "*";
+      cout << "MongoExecutor starting - launching Scheduler rev. "
+          << MongoScheduler::REV << " starting Executor at: " << uri << '\n';
 
-    // Find this executable's directory to locate executor.
-    // TODO: parse command args flags
-    string uri = os::realpath(argv[0]).get();
-    auto master = argv[1];
-    auto role = "*";
-    if (argc == 3) {
-        role = argv[2];
+      return run_scheduler(uri, role, masterIp);
     }
-    cout << "MongoExecutor starting - launching Scheduler rev. "
-         << MongoScheduler::REV << " starting Executor at: " << uri << '\n';
-
-    return run_scheduler(uri, role, master);
+  }
+  printUsage(argv[0], flags.usage());
 }

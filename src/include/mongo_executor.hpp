@@ -68,10 +68,10 @@ public:
     static const string MONGOD;
 
 public:
-    MongoExecutor(const string& _configFile) :
+    MongoExecutor(const string& configFile) :
         // TODO: read pidFileLocation instead from the config file:
-        //      pidFilePath: "/path/to/mongod.pid"
-        pidFileLocation{"/tmp/mongod.pid"}, configFile{_configFile} {}
+        //       pidFilePath: "/path/to/mongod.pid"
+        pidFileLocation_{"/tmp/mongod.pid"}, configFile_{configFile} {}
 
     virtual ~MongoExecutor() {}
 
@@ -101,10 +101,10 @@ private:
     //       a way to make it dynamic (or maybe not?)
     // TODO: right now, we just hard-code it, should read it instead from
     //      the config files `pidFilePath` entry
-    string pidFileLocation;
+    string pidFileLocation_;
 
     // The location of the configuration file
-    string configFile;
+    string configFile_;
 };
 
 int run_executor(const string&);
