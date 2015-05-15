@@ -18,9 +18,12 @@
 
 #include "mongo_scheduler.hpp"
 
+#include <fstream>
+#include <iostream>
+#include <sstream>
+
 #include <stout/ip.hpp>
 
-#include "mongo_executor.hpp"
 
 using std::cerr;
 using std::cout;
@@ -33,7 +36,32 @@ const Resources MongoScheduler::TASK_RESOURCES =
     Resources::parse("cpus:" + stringify(CPUS_PER_TASK) +
                      ";mem:" + stringify(MEM_PER_TASK)).get();
 
-const std::string MongoScheduler::REV { "0.1" };
+const std::string MongoScheduler::REV { "0.2" };
+
+bool MongoScheduler::validateConfig()
+{
+  std::ifstream cfgFile(config_);
+  if (!cfgFile) {
+    LOG(ERROR) << "Configuration " << config_ << " does not exist" << endl;
+    return false;
+  }
+  // TODO(marco): validate contents, perhaps?
+  // TODO(marco): extract the PID file from the config
+  return true;
+}
+
+long MongoScheduler::getPid()
+{
+  long pid;
+
+  std::ifstream pidFile(pidFilename_);
+  if (!pidFile) {
+    LOG(ERROR) << "Cannot open PID File " << pidFilename_ << endl;
+    return -1;
+  }
+  pidFile >> pid;
+  return pid;
+}
 
 
 void MongoScheduler::registered(SchedulerDriver* driver,
@@ -76,14 +104,13 @@ void MongoScheduler::resourceOffers(SchedulerDriver* driver,
       task.set_name("MongoServerTask");
       task.mutable_task_id()->set_value("mongodb_task");
       task.mutable_slave_id()->CopyFrom(offer.slave_id());
-      //task.mutable_executor()->CopyFrom(executor);
-      CommandInfo commandInfo;
-      CommandInfo* pCmd = task.mutable_command();
-      pCmd->set_shell(true);
+
+      mesos::CommandInfo* pCmd = task.mutable_command();
+      pCmd->set_shell(false);
       pCmd->set_value("mongod");
       pCmd->add_arguments("mongod");
       pCmd->add_arguments("--config");
-      pCmd->add_arguments("/etc/mongodb/mongod.conf");
+      pCmd->add_arguments(config_);
 
       Option<Resources> resources = remaining.find(
           TASK_RESOURCES.flatten(role));
@@ -130,20 +157,16 @@ void MongoScheduler::error(SchedulerDriver* driver, const string& message)
 }
 
 
-int run_scheduler(const std::string& uri,
-                  const std::string& role,
-                  const std::string& masterIp)
+int run_scheduler(const std::string& masterIp,
+                  const std::string& config,
+                  const std::string& role)
 {
-
-  ExecutorInfo executor;
-  executor.mutable_executor_id()->set_value("default");
-  executor.mutable_command()->set_value(uri);
-  executor.set_name("MongoDB Executor (C++)");
-  executor.set_source("mongo_executor.cpp");
 
   mesos::FrameworkInfo framework;
   framework.set_user(""); // Have Mesos fill in the current user.
-  framework.set_name("MongoDB Framework (C++)");
+  std::ostringstream name;
+  name << "MongoDB Framework (rev. " << MongoScheduler::REV << ")";
+  framework.set_name(name.str());
   framework.set_role(role);
 
   if (os::hasenv("MESOS_CHECKPOINT")) {
@@ -157,7 +180,7 @@ int run_scheduler(const std::string& uri,
        << " acknowledgments for status updates" << endl;
 
   std::shared_ptr<mesos::MesosSchedulerDriver> driver;
-  MongoScheduler scheduler(implicitAcknowledgements, executor, role);
+  MongoScheduler scheduler(implicitAcknowledgements, role, config);
 
   if (os::hasenv("MESOS_AUTHENTICATE")) {
     cout << "Enabling authentication for the framework" << endl;

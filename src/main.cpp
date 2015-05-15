@@ -8,7 +8,6 @@
 
 #include <gtest/gtest.h>
 
-#include "include/mongo_executor.hpp"
 #include "include/mongo_scheduler.hpp"
 
 using std::cout;
@@ -35,21 +34,13 @@ public:
   bool test;
 };
 
-MongoFlags::MongoFlags()
+inline MongoFlags::MongoFlags()
 {
-  add(&MongoFlags::master, "master", "The host address of the Mesos Master.");
+  add(&MongoFlags::master, "master", "The IP address of the Mesos Master.");
   add(&MongoFlags::config, "config", "The location of the configuration file,"
       " on the Worker node (MUST exist).");
   add(&MongoFlags::role, "role", "The role for the executor", "*");
   add(&MongoFlags::test, "test", "Will only run unit tests and exit.", false);
-}
-
-
-void printUsage(const string& prog, const string& flags)
-{
-  cout << "Usage: " << os::basename(prog).get() << " [options]\n\n"
-      "One (and only one) of the following options MUST be present.\n\n"
-      "Options:\n" << flags << endl;
 }
 
 
@@ -82,18 +73,16 @@ int main(int argc, char** argv)
     return test(argc, argv);
   }
 
-  if (flags.config.isSome()) {
-    cout << "Invoked by Mesos scheduler to execute binary" << endl;
-    return run_executor(flags.config.get());
+  if (flags.config.isNone() || flags.master.isNone()) {
+    cerr << "Must define both the master IP and the configuration file to use";
+    flags.printUsage(cerr);
+    return EXIT_FAILURE;
   }
 
-  if (flags.master.isSome()) {
-    string uri = os::realpath(argv[0]).get();
-    auto masterIp = flags.master.get();
-    auto role = flags.role;
-    cout << "MongoExecutor starting - launching Scheduler rev. "
-        << MongoScheduler::REV << " starting Executor at: " << uri << '\n';
+  auto masterIp = flags.master.get();
+  auto role = flags.role;
+  auto config = flags.config.get();
+  cout << "MongoScheduler starting - rev. " << MongoScheduler::REV << '\n';
 
-    return run_scheduler(uri, role, masterIp);
-  }
+  return run_scheduler(masterIp, config, role);
 }

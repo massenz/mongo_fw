@@ -63,12 +63,13 @@ public:
 
   MongoScheduler(
       bool _implicitAcknowledgements,
-      const ExecutorInfo& _executor,
-      const string& _role)
+      const string& _role,
+      const string& config)
     : implicitAcknowledgements(_implicitAcknowledgements),
-      executor(_executor),
       role(_role),
-      launched(false) {}
+      config_(config),
+      launched(false),
+      pidFilename_("/tmp/mongod.pid") { }
 
   virtual ~MongoScheduler() {}
 
@@ -76,7 +77,7 @@ public:
                           const FrameworkID&,
                           const MasterInfo&) override;
   virtual void reregistered(SchedulerDriver* driver,
-		  const MasterInfo& masterInfo) override;
+    const MasterInfo& masterInfo) override;
 
   virtual void disconnected(SchedulerDriver* driver) override {};
 
@@ -105,6 +106,8 @@ public:
   virtual void error(SchedulerDriver* driver, const string& message) override;
 
 private:
+  bool validateConfig();
+  long getPid();
 
   // The resources necessary to run a MongoDb server on a Mesos Slave
   static const Resources TASK_RESOURCES;
@@ -112,6 +115,8 @@ private:
   const bool implicitAcknowledgements;
   const ExecutorInfo executor;
   string role;
+  string config_;
+  string pidFilename_;
   bool launched;
 };
 
