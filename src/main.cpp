@@ -63,36 +63,37 @@ int test(int argc, char** argv)
 int main(int argc, char** argv)
 {
   MongoFlags flags;
-  bool help;
-  flags.add(&help, "help", "Prints this help message", false);
 
   Try<Nothing> load = flags.load(None(), argc, argv);
 
   if (load.isError()) {
-    std::cerr << "Failed to load flags: " << load.error() << std::endl;
-    return -1;
+    flags.printUsage(std::cerr) << "Failed to load flags: "
+        << load.error() << std::endl;
+    return EXIT_FAILURE;
   }
 
-  if (!help) {
-    if (flags.test) {
-      cout << "Running unit tests for Playground App\n";
-      return test(argc, argv);
-    }
-    if (flags.config.isSome()) {
-      cout << "Invoked by Mesos scheduler to execute binary" << endl;
-      return run_executor("/Users/marco/dev/mongodb/mongod.conf");
-    }
-
-    if (flags.master.isSome()) {
-      string uri = os::realpath(argv[0]).get();
-      auto masterIp = flags.master.get();
-      // TODO(marco): add the --role flag
-      auto role = "*";
-      cout << "MongoExecutor starting - launching Scheduler rev. "
-          << MongoScheduler::REV << " starting Executor at: " << uri << '\n';
-
-      return run_scheduler(uri, role, masterIp);
-    }
+  if (flags.help) {
+    flags.printUsage();
+    return EXIT_SUCCESS;
   }
-  printUsage(argv[0], flags.usage());
+
+  if (flags.test) {
+    cout << "Running unit tests for Playground App\n";
+    return test(argc, argv);
+  }
+
+  if (flags.config.isSome()) {
+    cout << "Invoked by Mesos scheduler to execute binary" << endl;
+    return run_executor(flags.config.get());
+  }
+
+  if (flags.master.isSome()) {
+    string uri = os::realpath(argv[0]).get();
+    auto masterIp = flags.master.get();
+    auto role = flags.role;
+    cout << "MongoExecutor starting - launching Scheduler rev. "
+        << MongoScheduler::REV << " starting Executor at: " << uri << '\n';
+
+    return run_scheduler(uri, role, masterIp);
+  }
 }

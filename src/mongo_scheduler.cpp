@@ -41,6 +41,7 @@ void MongoScheduler::registered(SchedulerDriver* driver,
     const MasterInfo& masterInfo)
 {
   cout << "Registered on Master node:  " << masterInfo.hostname()
+  // TODO: net::IP() seems to emit the IP backwards?
        << " (" << net::IP(masterInfo.ip()) << ':' << masterInfo.port() <<")\n";
 }
 
@@ -59,23 +60,27 @@ void disconnected(SchedulerDriver* driver)
 void MongoScheduler::resourceOffers(SchedulerDriver* driver,
     const vector<Offer>& offers)
 {
-  if (launched)
+  if (launched) {
+    LOG(INFO) << "MongoDB already launched";
     return;
+  }
 
   vector<TaskInfo> tasks;
   foreach (const Offer& offer, offers) {
     Resources remaining = offer.resources();
     if (remaining.flatten().contains(TASK_RESOURCES)) {
-      cout << "Starting MongoDb server, using offer [" << offer.id()
+      LOG(INFO) << "Starting MongoDb server, using offer [" << offer.id()
           << "] with resources: " << offer.resources() << endl;
 
       TaskInfo task;
       task.set_name("MongoServerTask");
-      task.mutable_task_id()->set_value(std::to_string(0));
+      task.mutable_task_id()->set_value("mongodb_task");
       task.mutable_slave_id()->CopyFrom(offer.slave_id());
-      task.mutable_executor()->CopyFrom(executor);
+      //task.mutable_executor()->CopyFrom(executor);
       CommandInfo commandInfo;
       CommandInfo* pCmd = task.mutable_command();
+      pCmd->set_shell(true);
+      pCmd->set_value("mongod");
       pCmd->add_arguments("mongod");
       pCmd->add_arguments("--config");
       pCmd->add_arguments("/etc/mongodb/mongod.conf");
@@ -125,8 +130,9 @@ void MongoScheduler::error(SchedulerDriver* driver, const string& message)
 }
 
 
-int run_scheduler(const std::string& uri, const std::string& role,
-    const std::string& masterIp)
+int run_scheduler(const std::string& uri,
+                  const std::string& role,
+                  const std::string& masterIp)
 {
 
   ExecutorInfo executor;
@@ -145,22 +151,18 @@ int run_scheduler(const std::string& uri, const std::string& role,
         numify<bool>(os::getenv("MESOS_CHECKPOINT")).get());
   }
 
-  bool implicitAcknowledgements = true;
-  if (os::hasenv("MESOS_EXPLICIT_ACKNOWLEDGEMENTS")) {
-    cout << "Enabling explicit acknowledgments for status updates" << endl;
-    implicitAcknowledgements = false;
-  }
+  bool implicitAcknowledgements = !os::hasenv(
+      "MESOS_EXPLICIT_ACKNOWLEDGEMENTS");
+  cout << "Enabling " << (implicitAcknowledgements ? "implicit" : "explicit")
+       << " acknowledgments for status updates" << endl;
 
   std::shared_ptr<mesos::MesosSchedulerDriver> driver;
   MongoScheduler scheduler(implicitAcknowledgements, executor, role);
 
   if (os::hasenv("MESOS_AUTHENTICATE")) {
     cout << "Enabling authentication for the framework" << endl;
-    if (!os::hasenv("DEFAULT_PRINCIPAL")) {
-      EXIT(1) << "Expecting authentication principal in the environment";
-    }
-    if (!os::hasenv("DEFAULT_SECRET")) {
-      EXIT(1) << "Expecting authentication secret in the environment";
+    if (!os::hasenv("DEFAULT_PRINCIPAL") || !os::hasenv("DEFAULT_SECRET")) {
+      EXIT(1) << "Expecting authentication credentials in the environment";
     }
 
     Credential credential;

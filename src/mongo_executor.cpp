@@ -35,15 +35,15 @@ void MongoRunner::operator ()()
 {
   running_ = true;
   if (!validateConfig()) {
-    cout << "Invalid configuration file " << config_ << endl;
+    LOG(ERROR) << "Invalid configuration file " << config_ << endl;
     return;
   }
   string cmd_line = "/usr/local/bin/mongod --config " + config_;
   auto retValue = system(cmd_line.c_str());
   if (retValue < 0) {
-    std::cerr << "Could not start a shell to run mongod (" << retValue << ")\n";
+    LOG(ERROR) << "Could not start a shell to run mongod (" << retValue << ")\n";
   } else {
-    cout << "MongoDB Server exited\n";
+    LOG(INFO) << "MongoDB Server exited\n";
   }
   running_ = false;
 }
@@ -54,7 +54,7 @@ long MongoRunner::getPid()
 
   std::ifstream pidFile(pidFilename_);
   if (!pidFile) {
-    std::cerr << "Cannot open PID File " << pidFilename_ << endl;
+    LOG(ERROR) << "Cannot open PID File " << pidFilename_ << endl;
     return -1;
   }
   pidFile >> pid;
@@ -65,7 +65,7 @@ bool MongoRunner::validateConfig()
 {
   std::ifstream cfgFile(config_);
   if (!cfgFile) {
-    std::cerr << "Configuration " << config_ << " does not exist" << endl;
+    LOG(ERROR) << "Configuration " << config_ << " does not exist" << endl;
     return false;
   }
   // TODO(marco): validate contents, perhaps?
@@ -79,14 +79,14 @@ void MongoExecutor::registered(ExecutorDriver* driver,
     const ExecutorInfo& executorInfo, const FrameworkInfo& frameworkInfo,
     const SlaveInfo& slaveInfo)
 {
-  cout << "Registered MongoDB executor Rev. " << MongoExecutor::REV << " on "
-      << slaveInfo.hostname() << endl;
+  LOG(INFO) << "Registered MongoDB executor Rev. " << MongoExecutor::REV
+      << " on " << slaveInfo.hostname() << endl;
 }
 
 void MongoExecutor::reregistered(ExecutorDriver* driver,
     const SlaveInfo& slaveInfo)
 {
-  cout << "Re-registered executor on " << slaveInfo.hostname() << endl;
+  LOG(INFO) << "Re-registered executor on " << slaveInfo.hostname() << endl;
 }
 
 void MongoExecutor::launchTask(ExecutorDriver* driver, const TaskInfo& task)
@@ -95,7 +95,7 @@ void MongoExecutor::launchTask(ExecutorDriver* driver, const TaskInfo& task)
   //    - install mongod
   //    - run mongod
   //    - add to ReplicaSet
-  cout << "Running Task: " << task.name() << '\n';
+  LOG(INFO) << "Running Task: " << task.name() << endl;
 
   // start MongoDB server (mongod) in a separate thread
   // TODO(marco): extract the configuration file from Task::data()
@@ -111,14 +111,13 @@ void MongoExecutor::launchTask(ExecutorDriver* driver, const TaskInfo& task)
   int pid = -1;
   if (runner.isRunning()) {
     pid = runner.getPid();
-    cout << "Mongo Server started with PID: "
-         << pid << '\n';
+    LOG(INFO) << "Mongo Server started with PID: " << pid << '\n';
     status.set_state(TASK_RUNNING);
     driver->sendStatusUpdate(status);
 
     mongod.join();
-    cout << "Terminating Mongod (" << pid << ") with TaskId: "
-         << task.task_id().value() << endl;
+    LOG(INFO) << "Terminating Mongod (" << pid << ") with TaskId: "
+              << task.task_id().value() << endl;
     status.set_state(TASK_FINISHED);
     driver->sendStatusUpdate(status);
   } else {
