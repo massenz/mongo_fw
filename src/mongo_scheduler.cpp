@@ -85,10 +85,19 @@ void disconnected(SchedulerDriver* driver)
   cout << "Master disconnected" << endl;
 }
 
+void MongoScheduler::setMongoCmd(mesos::CommandInfo* pCmd)
+{
+  pCmd->set_shell(false);
+  pCmd->set_value("mongod");
+  pCmd->add_arguments("mongod");
+  pCmd->add_arguments("--config");
+  pCmd->add_arguments(config_);
+}
+
 void MongoScheduler::resourceOffers(SchedulerDriver* driver,
     const vector<Offer>& offers)
 {
-  if (launched) {
+  if (launched_) {
     LOG(INFO) << "MongoDB already launched";
     return;
   }
@@ -106,22 +115,17 @@ void MongoScheduler::resourceOffers(SchedulerDriver* driver,
       task.mutable_slave_id()->CopyFrom(offer.slave_id());
 
       mesos::CommandInfo* pCmd = task.mutable_command();
-      pCmd->set_shell(false);
-      pCmd->set_value("mongod");
-      pCmd->add_arguments("mongod");
-      pCmd->add_arguments("--config");
-      pCmd->add_arguments(config_);
-
+      setMongoCmd(pCmd);
       Option<Resources> resources = remaining.find(
-          TASK_RESOURCES.flatten(role));
+          TASK_RESOURCES.flatten(role_));
       CHECK_SOME(resources);
       task.mutable_resources()->MergeFrom(resources.get());
       remaining -= resources.get();
       tasks.push_back(task);
       driver->launchTasks(offer.id(), tasks);
-      launched = true;
+      launched_ = true;
     }
-    if (launched) {
+    if (launched_) {
       cout << "MongoDB now running on Slave IP [TODO] and port [TODO]"
           << "\nPress Ctrl-C to terminate...\n" << endl;
       break;
@@ -132,21 +136,25 @@ void MongoScheduler::resourceOffers(SchedulerDriver* driver,
 void MongoScheduler::statusUpdate(SchedulerDriver* driver,
     const TaskStatus& status)
 {
-  int taskId = std::atoi(status.task_id().value().c_str());
+  string taskId = status.task_id().value();
   if (status.state() == mesos::TASK_FINISHED) {
-    cout << "Exiting now\n";
-    driver->stop();
+    LOG(INFO) << "Task: "<< taskId << " finished\n";
+    // TODO: can we run multiple tasks?
+    launched_ = false;
+//    driver->stop();
   }
 
-  if (status.state() == mesos::TASK_LOST || status.state() == mesos::TASK_KILLED
-      || status.state() == mesos::TASK_FAILED) {
-    cerr << "Aborting because task " << taskId << " is in unexpected state "
+  if (status.state() == mesos::TASK_LOST ||
+      status.state() == mesos::TASK_KILLED ||
+      status.state() == mesos::TASK_FAILED) {
+    LOG(WARNING) << "Aborting because task " << taskId
+        << " is in unexpected state "
         << status.state() << " with reason " << status.reason()
-        << ", from source " << status.source() << "\nWith message: '"
-        << status.message() << "'" << endl;
+        << ", from source " << status.source() << '\n'
+        << status.message() << endl;
     driver->abort();
   }
-  if (!implicitAcknowledgements) {
+  if (!implicitAcknowledgements_) {
     driver->acknowledgeStatusUpdate(status);
   }
 }

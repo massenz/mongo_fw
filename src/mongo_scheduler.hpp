@@ -62,13 +62,13 @@ public:
 	static const std::string REV;
 
   MongoScheduler(
-      bool _implicitAcknowledgements,
-      const string& _role,
+      bool implicitAcknowledgements,
+      const string& role,
       const string& config)
-    : implicitAcknowledgements(_implicitAcknowledgements),
-      role(_role),
+    : implicitAcknowledgements_(implicitAcknowledgements),
+      role_(role),
       config_(config),
-      launched(false),
+      launched_(false),
       pidFilename_("/tmp/mongod.pid") { }
 
   virtual ~MongoScheduler() {}
@@ -108,16 +108,16 @@ public:
 private:
   bool validateConfig();
   long getPid();
+  void setMongoCmd(mesos::CommandInfo* pCmd);
 
   // The resources necessary to run a MongoDb server on a Mesos Slave
   static const Resources TASK_RESOURCES;
 
-  const bool implicitAcknowledgements;
-  const ExecutorInfo executor;
-  string role;
+  const bool implicitAcknowledgements_;
+  string role_;
   string config_;
+  bool launched_;
   string pidFilename_;
-  bool launched;
 };
 
 

@@ -8,7 +8,7 @@
 
 #include <gtest/gtest.h>
 
-#include "include/mongo_scheduler.hpp"
+#include "mongo_scheduler.hpp"
 
 using std::cout;
 using std::cerr;
