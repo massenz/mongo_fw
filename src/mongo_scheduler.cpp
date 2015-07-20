@@ -18,7 +18,7 @@
 
 #include "mongo_scheduler.hpp"
 
-#include <stout/ip.hpp>
+//#include <stout/ip.hpp>
 
 #include "mongo_executor.hpp"
 
@@ -40,8 +40,7 @@ void MongoScheduler::registered(SchedulerDriver* driver,
     const FrameworkID& frameworkId,
     const MasterInfo& masterInfo)
 {
-  cout << "Registered on Master node:  " << masterInfo.hostname()
-       << " (" << net::IP(masterInfo.ip()) << ':' << masterInfo.port() <<")\n";
+  cout << "Registered on Master node:  " << masterInfo.hostname() <<")\n";
 }
 
 void MongoScheduler::reregistered(SchedulerDriver* driver,
@@ -66,7 +65,7 @@ void MongoScheduler::resourceOffers(SchedulerDriver* driver,
   foreach (const Offer& offer, offers) {
     Resources remaining = offer.resources();
     if (remaining.flatten().contains(TASK_RESOURCES)) {
-      cout << "Starting MongoDb server, using offer [" << offer.id()
+      cout << "Starting MongoDb server, using offer [" << offer.id().value()
           << "] with resources: " << offer.resources() << endl;
 
       TaskInfo task;
@@ -109,13 +108,8 @@ void MongoScheduler::statusUpdate(SchedulerDriver* driver,
   if (status.state() == mesos::TASK_LOST || status.state() == mesos::TASK_KILLED
       || status.state() == mesos::TASK_FAILED) {
     cerr << "Aborting because task " << taskId << " is in unexpected state "
-        << status.state() << " with reason " << status.reason()
-        << ", from source " << status.source() << "\nWith message: '"
-        << status.message() << "'" << endl;
+        << status.state() << "\nWith message: '" << status.message() << "'" << endl;
     driver->abort();
-  }
-  if (!implicitAcknowledgements) {
-    driver->acknowledgeStatusUpdate(status);
   }
 }
 
