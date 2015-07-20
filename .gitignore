@@ -7,6 +7,13 @@
 .project
 .settings/
 
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+gen/
+
 # Recommended build directory
 build/
 Debug/

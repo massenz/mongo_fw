@@ -6,19 +6,25 @@ set(VERSION_MAJOR 0)
 set(VERSION_MINOR 2)
 
 # Directories configuration
-set(SOURCE_DIR src)
-set(BINARY_DIR build)
-
+set(SOURCE_DIR ${PROJECT_SOURCE_DIR}/src)
+set(PROJECT_BINARY_DIR ${PROJECT_SOURCE_DIR}/build)
+set(GEN_DIR ${PROJECT_SOURCE_DIR}/gen)
 set(CMAKE_PREFIX_PATH /usr/local)
-set(CMAKE_INCLUDE_PATH ${BASE_DIR}/include)
+
+message("Building project `${PROJECT_NAME}`
+         from: ${PROJECT_SOURCE_DIR}
+         to: ${PROJECT_BINARY_DIR}")
 
 # Configure a header file to pass settings into source code
 configure_file(
-    "${PROJECT_SOURCE_DIR}/config.h.in"
-    "${PROJECT_BINARY_DIR}/config.h"
+    ${PROJECT_SOURCE_DIR}/config.h.in
+    ${GEN_DIR}/config.h
 )
 
-include_directories("${PROJECT_BINARY_DIR}")
+
+include_directories(${SOURCE_DIR}/include
+                    ${GEN_DIR}
+                    ${PROJECT_BINARY_DIR}/include)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 

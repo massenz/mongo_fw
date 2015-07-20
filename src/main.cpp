@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "mongo_scheduler.hpp"
+#include "config.h"
 
 using std::cout;
 using std::cerr;
@@ -23,8 +24,7 @@ using std::string;
 //
 // All the flags are optional, but at least ONE (and at most one) MUST be
 // present.
-class MongoFlags: public flags::FlagsBase
-{
+class MongoFlags : public flags::FlagsBase {
 public:
   MongoFlags();
 
@@ -34,8 +34,8 @@ public:
   bool test;
 };
 
-inline MongoFlags::MongoFlags()
-{
+
+inline MongoFlags::MongoFlags() {
   add(&MongoFlags::master, "master", "The IP address of the Mesos Master.");
   add(&MongoFlags::config, "config", "The location of the configuration file,"
       " on the Worker node (MUST exist).");
@@ -44,33 +44,34 @@ inline MongoFlags::MongoFlags()
 }
 
 
-int test(int argc, char** argv)
-{
+int test(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
 
 
-int main(int argc, char** argv)
-{
+int main(int argc, char **argv) {
   MongoFlags flags;
 
   Try<Nothing> load = flags.load(None(), argc, argv);
 
+
   if (load.isError()) {
     LOG(ERROR) << flags.usage() << "Failed to load flags: "
-        << load.error() << std::endl;
+    << load.error() << std::endl;
     return EXIT_FAILURE;
   }
 
+  LOG(INFO) << "Running Version: " << std::to_string(VERSION_MAJOR)
+  << "." << std::to_string(VERSION_MINOR);
   if (flags.test) {
-    cout << "Running unit tests for Playground App\n";
+    LOG(INFO) << "Running unit tests for Playground App";
     return test(argc, argv);
   }
 
   if (flags.config.isNone() || flags.master.isNone()) {
     LOG(ERROR) << "Must define both the master IP and the configuration file to use"
-               << flags.usage();
+    << flags.usage();
     return EXIT_FAILURE;
   }
 

@@ -18,11 +18,9 @@
 
 #include "mongo_scheduler.hpp"
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
-
 #include <stout/ip.hpp>
+
+#include "config.h"
 
 
 using std::cerr;
@@ -36,7 +34,11 @@ const Resources MongoScheduler::TASK_RESOURCES =
     Resources::parse("cpus:" + stringify(CPUS_PER_TASK) +
                      ";mem:" + stringify(MEM_PER_TASK)).get();
 
-const std::string MongoScheduler::REV { "0.2" };
+const std::string MongoScheduler::REV{
+    std::to_string(VERSION_MAJOR) + "." +
+    std::to_string(VERSION_MINOR)
+};
+
 
 bool MongoScheduler::validateConfig()
 {
@@ -46,9 +48,9 @@ bool MongoScheduler::validateConfig()
     return false;
   }
   // TODO(marco): validate contents, perhaps?
-  // TODO(marco): extract the PID file from the config
   return true;
 }
+
 
 long MongoScheduler::getPid()
 {
@@ -64,28 +66,31 @@ long MongoScheduler::getPid()
 }
 
 
-void MongoScheduler::registered(SchedulerDriver* driver,
-    const FrameworkID& frameworkId,
-    const MasterInfo& masterInfo)
+void MongoScheduler::registered(SchedulerDriver *driver,
+                                const FrameworkID &frameworkId,
+                                const MasterInfo &masterInfo)
 {
   cout << "Registered on Master node:  " << masterInfo.hostname()
   // TODO: net::IP() seems to emit the IP backwards?
-       << " (" << net::IP(masterInfo.ip()) << ':' << masterInfo.port() <<")\n";
+  << " (" << net::IP(masterInfo.ip()) << ':' << masterInfo.port() << ")\n";
 }
 
-void MongoScheduler::reregistered(SchedulerDriver* driver,
-    const MasterInfo& masterInfo)
+
+void MongoScheduler::reregistered(SchedulerDriver *driver,
+                                  const MasterInfo &masterInfo)
 {
   cout << "Worker came back and re-registered: with master [" << masterInfo.id()
-      << "] at: " << masterInfo.hostname() << endl;
+  << "] at: " << masterInfo.hostname() << endl;
 }
 
-void disconnected(SchedulerDriver* driver)
+
+void disconnected(SchedulerDriver *driver)
 {
   cout << "Master disconnected" << endl;
 }
 
-void MongoScheduler::setMongoCmd(mesos::CommandInfo* pCmd)
+
+void MongoScheduler::setMongoCmd(mesos::CommandInfo *pCmd)
 {
   pCmd->set_shell(false);
   pCmd->set_value("mongod");
@@ -94,8 +99,9 @@ void MongoScheduler::setMongoCmd(mesos::CommandInfo* pCmd)
   pCmd->add_arguments(config_);
 }
 
-void MongoScheduler::resourceOffers(SchedulerDriver* driver,
-    const vector<Offer>& offers)
+
+void MongoScheduler::resourceOffers(SchedulerDriver *driver,
+                                    const vector<Offer> &offers)
 {
   if (launched_) {
     LOG(INFO) << "MongoDB already launched";
@@ -103,42 +109,43 @@ void MongoScheduler::resourceOffers(SchedulerDriver* driver,
   }
 
   vector<TaskInfo> tasks;
-  foreach (const Offer& offer, offers) {
-    Resources remaining = offer.resources();
-    if (remaining.flatten().contains(TASK_RESOURCES)) {
-      LOG(INFO) << "Starting MongoDb server, using offer [" << offer.id()
-          << "] with resources: " << offer.resources() << endl;
+      foreach (const Offer &offer, offers) {
+          Resources remaining = offer.resources();
+          if (remaining.flatten().contains(TASK_RESOURCES)) {
+            LOG(INFO) << "Starting MongoDb server, using offer [" << offer.id()
+            << "] with resources: " << offer.resources() << endl;
 
-      TaskInfo task;
-      task.set_name("MongoServerTask");
-      task.mutable_task_id()->set_value("mongodb_task");
-      task.mutable_slave_id()->CopyFrom(offer.slave_id());
+            TaskInfo task;
+            task.set_name("MongoServerTask");
+            task.mutable_task_id()->set_value("mongodb_task");
+            task.mutable_slave_id()->CopyFrom(offer.slave_id());
 
-      mesos::CommandInfo* pCmd = task.mutable_command();
-      setMongoCmd(pCmd);
-      Option<Resources> resources = remaining.find(
-          TASK_RESOURCES.flatten(role_));
-      CHECK_SOME(resources);
-      task.mutable_resources()->MergeFrom(resources.get());
-      remaining -= resources.get();
-      tasks.push_back(task);
-      driver->launchTasks(offer.id(), tasks);
-      launched_ = true;
-    }
-    if (launched_) {
-      cout << "MongoDB now running on Slave IP [TODO] and port [TODO]"
-          << "\nPress Ctrl-C to terminate...\n" << endl;
-      break;
-    }
-  }
+            mesos::CommandInfo *pCmd = task.mutable_command();
+            setMongoCmd(pCmd);
+            Option<Resources> resources = remaining.find(
+                TASK_RESOURCES.flatten(role_));
+            CHECK_SOME(resources);
+            task.mutable_resources()->MergeFrom(resources.get());
+            remaining -= resources.get();
+            tasks.push_back(task);
+            driver->launchTasks(offer.id(), tasks);
+            launched_ = true;
+          }
+          if (launched_) {
+            cout << "MongoDB now running on Slave IP [TODO] and port [TODO]"
+            << "\nPress Ctrl-C to terminate...\n" << endl;
+            break;
+          }
+        }
 }
 
-void MongoScheduler::statusUpdate(SchedulerDriver* driver,
-    const TaskStatus& status)
+
+void MongoScheduler::statusUpdate(SchedulerDriver *driver,
+                                  const TaskStatus &status)
 {
   string taskId = status.task_id().value();
   if (status.state() == mesos::TASK_FINISHED) {
-    LOG(INFO) << "Task: "<< taskId << " finished\n";
+    LOG(INFO) << "Task: " << taskId << " finished\n";
     // TODO: can we run multiple tasks?
     launched_ = false;
 //    driver->stop();
@@ -148,10 +155,10 @@ void MongoScheduler::statusUpdate(SchedulerDriver* driver,
       status.state() == mesos::TASK_KILLED ||
       status.state() == mesos::TASK_FAILED) {
     LOG(WARNING) << "Aborting because task " << taskId
-        << " is in unexpected state "
-        << status.state() << " with reason " << status.reason()
-        << ", from source " << status.source() << '\n'
-        << status.message() << endl;
+    << " is in unexpected state "
+    << status.state() << " with reason " << status.reason()
+    << ", from source " << status.source() << '\n'
+    << status.message() << endl;
     driver->abort();
   }
   if (!implicitAcknowledgements_) {
@@ -159,15 +166,16 @@ void MongoScheduler::statusUpdate(SchedulerDriver* driver,
   }
 }
 
-void MongoScheduler::error(SchedulerDriver* driver, const string& message)
+
+void MongoScheduler::error(SchedulerDriver *driver, const string &message)
 {
   cout << message << endl;
 }
 
 
-int run_scheduler(const std::string& masterIp,
-                  const std::string& config,
-                  const std::string& role)
+int run_scheduler(const std::string &masterIp,
+                  const std::string &config,
+                  const std::string &role)
 {
 
   mesos::FrameworkInfo framework;
@@ -185,7 +193,7 @@ int run_scheduler(const std::string& masterIp,
   bool implicitAcknowledgements = !os::hasenv(
       "MESOS_EXPLICIT_ACKNOWLEDGEMENTS");
   cout << "Enabling " << (implicitAcknowledgements ? "implicit" : "explicit")
-       << " acknowledgments for status updates" << endl;
+  << " acknowledgments for status updates" << endl;
 
   std::shared_ptr<mesos::MesosSchedulerDriver> driver;
   MongoScheduler scheduler(implicitAcknowledgements, role, config);
@@ -202,11 +210,11 @@ int run_scheduler(const std::string& masterIp,
     framework.set_principal(getenv("DEFAULT_PRINCIPAL"));
     driver = std::make_shared<mesos::MesosSchedulerDriver>(
         mesos::MesosSchedulerDriver(&scheduler, framework, masterIp,
-            implicitAcknowledgements, credential));
+                                    implicitAcknowledgements, credential));
   } else {
     framework.set_principal("mongodb-framework-cpp");
     driver = std::make_shared<mesos::MesosSchedulerDriver>(&scheduler,
-        framework, masterIp, implicitAcknowledgements);
+                                                           framework, masterIp, implicitAcknowledgements);
   }
   int status = driver->run() == mesos::DRIVER_STOPPED ? 0 : 1;
   // Ensure that the driver process terminates.
