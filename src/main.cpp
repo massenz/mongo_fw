@@ -7,6 +7,7 @@
 #include <stout/flags/flags.hpp>
 
 #include <gtest/gtest.h>
+#include <mongo.pb.h>
 
 #include "mongo_scheduler.hpp"
 #include "config.h"
@@ -29,18 +30,41 @@ public:
   MongoFlags();
 
   Option<string> master;
-  Option<string> config;
+  string config;
   string role;
   bool test;
+  Option<string> user;
+  Option<string> password;
 };
 
 
-inline MongoFlags::MongoFlags() {
-  add(&MongoFlags::master, "master", "The IP address of the Mesos Master.");
-  add(&MongoFlags::config, "config", "The location of the configuration file,"
-      " on the Worker node (MUST exist).");
-  add(&MongoFlags::role, "role", "The role for the executor", "*");
-  add(&MongoFlags::test, "test", "Will only run unit tests and exit.", false);
+MongoFlags::MongoFlags() {
+  add(&MongoFlags::master,
+      "master",
+      "The IP address and port of the Mesos Master.");
+  add(&MongoFlags::config,
+      "config",
+      "The location of the configuration file, on the Worker node (MUST exist).",
+      ""
+  );
+  add(&MongoFlags::role,
+      "role",
+      "The role for the executor; by default '*'",
+      "*"
+  );
+  add(&MongoFlags::test,
+      "test",
+      "If set, it Will only run unit tests and exit.",
+      false
+  );
+  add(&MongoFlags::user,
+      "user",
+      "The username to authenticate access"
+  );
+  add(&MongoFlags::password,
+      "passwd",
+      "The password to authenticate --user"
+  );
 }
 
 
@@ -50,8 +74,22 @@ int test(int argc, char **argv) {
 }
 
 
+std::string stringify(const mongo::VersionInfo& info)
+{
+  // TODO(marco): add SHA to version string
+  return std::to_string(info.major()) + "." + std::to_string(info.minor()) +
+      (info.has_patch() ? "." + info.patch() : "") +
+      (info.has_build() ? "-" + info.build() : "");
+}
+
+
 int main(int argc, char **argv) {
   MongoFlags flags;
+
+  mongo::VersionInfo info;
+  info.set_major(VERSION_MAJOR);
+  info.set_minor(VERSION_MINOR);
+  info.set_build(BUILD_ID);
 
   Try<Nothing> load = flags.load(None(), argc, argv);
 
@@ -62,23 +100,31 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  LOG(INFO) << "Running Version: " << std::to_string(VERSION_MAJOR)
-  << "." << std::to_string(VERSION_MINOR);
+  LOG(INFO) << "Running Version: " << stringify(info);
   if (flags.test) {
     LOG(INFO) << "Running unit tests for Playground App";
     return test(argc, argv);
   }
 
-  if (flags.config.isNone() || flags.master.isNone()) {
-    LOG(ERROR) << "Must define both the master IP and the configuration file to use"
-    << flags.usage();
+  if (flags.master.isNone()) {
+    LOG(ERROR) << "Must define the Master's location" << flags.usage();
     return EXIT_FAILURE;
   }
 
+  mongo::Credentials credentials;
+  credentials.set_crypto("DES-3");
+  if (flags.user.isSome()) {
+    credentials.set_principal(flags.user.get());
+    if (flags.password.isSome()) {
+      credentials.set_password(flags.user.get());
+    }
+  }
+  LOG(INFO) << "Authenticating for " << credentials.principal();
+
   auto masterIp = flags.master.get();
   auto role = flags.role;
-  auto config = flags.config.get();
-  cout << "MongoScheduler starting - rev. " << MongoScheduler::REV << '\n';
+  auto config = flags.config;
+  cout << "MongoScheduler starting - rev. " << MongoScheduler::REV << endl;
 
   return run_scheduler(masterIp, config, role);
 }

@@ -1,0 +1,28 @@
+// mongo.proto, created m. massenzio 2015-07-19
+
+// Simple protobuf, to experiment with CMake
+
+package mongo;
+
+// Version information
+// Uses semantic versioning: major.minor[.patch]
+// and optionally a build number and a commit SHA.
+message VersionInfo {
+
+  required uint32 major = 1;
+  required uint32 minor = 2;
+  optional uint32 patch = 3;
+
+  optional string build = 4;
+
+  optional string sha = 5;
+}
+
+
+// Generic authentication support
+message Credentials {
+    required string principal = 1;
+    required string password = 2;
+    required string domain = 3;
+    optional string crypto = 4;
+}
