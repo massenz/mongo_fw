@@ -28,7 +28,6 @@
 
 #include <mesos/resources.hpp>
 #include <mesos/scheduler.hpp>
-#include <mesos/type_utils.hpp>
 
 #include <stout/check.hpp>
 #include <stout/exit.hpp>

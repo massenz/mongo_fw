@@ -1,0 +1,7 @@
+// Created by M. Massenzio, 2015-07-19
+
+// This file contains configuration settings
+// from CMakeLists
+
+#define VERSION_MAJOR @VERSION_MAJOR@
+#define VERSION_MINOR @VERSION_MINOR@

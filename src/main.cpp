@@ -58,14 +58,9 @@ int main(int argc, char** argv)
   Try<Nothing> load = flags.load(None(), argc, argv);
 
   if (load.isError()) {
-    flags.printUsage(std::cerr) << "Failed to load flags: "
+    LOG(ERROR) << flags.usage() << "Failed to load flags: "
         << load.error() << std::endl;
     return EXIT_FAILURE;
-  }
-
-  if (flags.help) {
-    flags.printUsage();
-    return EXIT_SUCCESS;
   }
 
   if (flags.test) {
@@ -74,8 +69,8 @@ int main(int argc, char** argv)
   }
 
   if (flags.config.isNone() || flags.master.isNone()) {
-    cerr << "Must define both the master IP and the configuration file to use";
-    flags.printUsage(cerr);
+    LOG(ERROR) << "Must define both the master IP and the configuration file to use"
+               << flags.usage();
     return EXIT_FAILURE;
   }
 

@@ -1,33 +1,17 @@
+# Git Ignore file
 
-# Files created by ./bootstrap.
+# Configuration directories
 .reviewboardrc
-Makefile.in
-aclocal.m4
-ar-lib
-autom4te.cache
-compile
-config.guess
-config.sub
-configure
-depcomp
-install-sh
-libtool.m4
-ltmain.sh
-ltoptions.m4
-ltsugar.m4
-ltversion.m4
-lt~obsolete.m4
-missing
-
-# Recommended build directory.
-/build/
-
-# Eclipse stuff and other junk
+.idea/
 .cproject
 .project
 .settings/
-Debug/
-Unittests/
-Main/
-.idea/
 
+# Recommended build directory
+build/
+Debug/
+
+# Compiler intermediate files
+.o
+.so
+.la
