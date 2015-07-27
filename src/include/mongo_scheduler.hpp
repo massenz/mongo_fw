@@ -28,7 +28,6 @@
 
 #include <mesos/resources.hpp>
 #include <mesos/scheduler.hpp>
-#include <mesos/type_utils.hpp>
 
 #include <stout/check.hpp>
 #include <stout/exit.hpp>
@@ -56,59 +55,79 @@ using mesos::TaskStatus;
 const int32_t CPUS_PER_TASK = 2;
 const int32_t MEM_PER_TASK = 512;
 
+
 class MongoScheduler : public Scheduler
 {
 public:
-	static const std::string REV;
+  static const std::string REV;
+
 
   MongoScheduler(
       bool implicitAcknowledgements,
-      const string& role,
-      const string& config)
-    : implicitAcknowledgements_(implicitAcknowledgements),
-      role_(role),
-      config_(config),
-      launched_(false),
-      pidFilename_("/tmp/mongod.pid") { }
+      const string &role,
+      const string &config)
+      : implicitAcknowledgements_(implicitAcknowledgements),
+        role_(role),
+        config_(config),
+        launched_(false),
+        pidFilename_("/tmp/mongod.pid") { }
 
-  virtual ~MongoScheduler() {}
 
-  virtual void registered(SchedulerDriver*,
-                          const FrameworkID&,
-                          const MasterInfo&) override;
-  virtual void reregistered(SchedulerDriver* driver,
-    const MasterInfo& masterInfo) override;
+  virtual ~MongoScheduler() { }
 
-  virtual void disconnected(SchedulerDriver* driver) override {};
 
-  virtual void resourceOffers(SchedulerDriver* driver,
-                              const std::vector<Offer>& offers) override;
+  virtual void registered(
+      SchedulerDriver *,
+      const FrameworkID &,
+      const MasterInfo &) override;
 
-  virtual void offerRescinded(SchedulerDriver* driver,
-                              const OfferID& offerId) override {}
+  virtual void reregistered(SchedulerDriver *driver,
+                            const MasterInfo &masterInfo) override;
 
-  virtual void statusUpdate(SchedulerDriver* driver, const TaskStatus& status)
+
+  virtual void disconnected(SchedulerDriver *driver) override { };
+
+  virtual void resourceOffers(
+      SchedulerDriver *driver,
+      const std::vector<Offer> &offers) override;
+
+
+  virtual void offerRescinded(SchedulerDriver *driver,
+                              const OfferID &offerId) override
+  { }
+
+
+  virtual void statusUpdate(SchedulerDriver *driver, const TaskStatus &status)
       override;
 
-  virtual void frameworkMessage(SchedulerDriver* driver,
-                                const mesos::ExecutorID& executorId,
-                                const mesos::SlaveID& slaveId,
-                                const string& data) override {}
 
-  virtual void slaveLost(SchedulerDriver* driver, const mesos::SlaveID& sid)
-      override {}
+  virtual void frameworkMessage(
+      SchedulerDriver *driver,
+      const mesos::ExecutorID &executorId,
+      const mesos::SlaveID &slaveId,
+      const string &data) override { }
 
-  virtual void executorLost(SchedulerDriver* driver,
-                            const mesos::ExecutorID& executorID,
-                            const mesos::SlaveID& slaveID,
-                            int status) override {}
 
-  virtual void error(SchedulerDriver* driver, const string& message) override;
+  virtual void slaveLost(SchedulerDriver *driver, const mesos::SlaveID &sid)
+  override
+  { }
+
+
+  virtual void executorLost(SchedulerDriver *driver,
+                            const mesos::ExecutorID &executorID,
+                            const mesos::SlaveID &slaveID,
+                            int status) override
+  { }
+
+
+  virtual void error(SchedulerDriver *driver, const string &message) override;
 
 private:
   bool validateConfig();
+
   long getPid();
-  void setMongoCmd(mesos::CommandInfo* pCmd);
+
+  void setMongoCmd(mesos::CommandInfo *pCmd);
 
   // The resources necessary to run a MongoDb server on a Mesos Slave
   static const Resources TASK_RESOURCES;
@@ -121,6 +140,6 @@ private:
 };
 
 
-int run_scheduler(const string& uri, const string& role, const string& master);
+int run_scheduler(const string &uri, const string &role, const string &master);
 
 #endif // _MONGO_SCHEDULER
