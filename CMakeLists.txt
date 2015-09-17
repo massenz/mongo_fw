@@ -32,7 +32,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 # Build protocol buffers
 add_custom_command(
-    OUTPUT ${GEN_DIR}/mongo.pb.cc
+    OUTPUT ${GEN_DIR}/mongo.pb.cc ${GEN_DIR}/mongo.pb.h
     COMMAND protoc -I=${PROTO_DIR} --cpp_out=${GEN_DIR} ${PROTO_DIR}/mongo.proto
     DEPENDS ${PROTO_DIR}/mongo.proto
 )

@@ -54,7 +54,7 @@ MongoFlags::MongoFlags() {
   );
   add(&MongoFlags::test,
       "test",
-      "If set, it Will only run unit tests and exit.",
+      "If set, it will only run unit tests and exit.",
       false
   );
   add(&MongoFlags::user,

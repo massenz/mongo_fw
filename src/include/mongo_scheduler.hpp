@@ -53,7 +53,7 @@ using mesos::TaskState;
 using mesos::TaskStatus;
 
 const int32_t CPUS_PER_TASK = 2;
-const int32_t MEM_PER_TASK = 512;
+const int32_t MEM_PER_TASK = 2048;
 
 
 class MongoScheduler : public Scheduler
