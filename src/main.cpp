@@ -78,7 +78,7 @@ std::string stringify(const mongo::VersionInfo& info)
 {
   // TODO(marco): add SHA to version string
   return std::to_string(info.major()) + "." + std::to_string(info.minor()) +
-      (info.has_patch() ? "." + info.patch() : "") +
+      (info.has_patch() ? "." + std::to_string(info.patch()) : "") +
       (info.has_build() ? "-" + info.build() : "");
 }
 
@@ -93,10 +93,8 @@ int main(int argc, char **argv) {
 
   Try<Nothing> load = flags.load(None(), argc, argv);
 
-
   if (load.isError()) {
-    LOG(ERROR) << flags.usage() << "Failed to load flags: "
-    << load.error() << std::endl;
+    LOG(ERROR) << load.error();
     return EXIT_FAILURE;
   }
 
@@ -107,7 +105,7 @@ int main(int argc, char **argv) {
   }
 
   if (flags.master.isNone()) {
-    LOG(ERROR) << "Must define the Master's location" << flags.usage();
+    LOG(ERROR) << flags.usage("Must define the Master's location");
     return EXIT_FAILURE;
   }
 

@@ -6,6 +6,19 @@ set(VERSION_MAJOR 0)
 set(VERSION_MINOR 2)
 string(TIMESTAMP BUILD_ID "%Y%m%d" UTC)
 
+
+# Mesos installation directory
+set(MESOS_INSTALL_DIR $ENV{MESOS_INSTALL})
+if(NOT MESOS_INSTALL_DIR)
+    set(MESOS_INSTALL_DIR /usr/local)
+endif(NOT MESOS_INSTALL_DIR)
+
+include_directories(SYSTEM ${MESOS_INSTALL_DIR}/include)
+link_directories(${MESOS_INSTALL_DIR}/lib)
+
+# Adding gtest (TODO: add gmock too)
+include_directories(${MESOS_INSTALL_DIR}/gtest-1.7.0/include)
+
 # Directories configuration
 set(SOURCE_DIR ${PROJECT_SOURCE_DIR}/src)
 set(PROJECT_BINARY_DIR ${PROJECT_SOURCE_DIR}/build)

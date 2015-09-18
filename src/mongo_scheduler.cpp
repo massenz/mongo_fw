@@ -18,6 +18,7 @@
 
 #include "mongo_scheduler.hpp"
 
+#include <fstream>
 #include <stout/ip.hpp>
 
 #include "config.h"
@@ -146,20 +147,19 @@ void MongoScheduler::statusUpdate(SchedulerDriver *driver,
   string taskId = status.task_id().value();
   if (status.state() == mesos::TASK_FINISHED) {
     LOG(INFO) << "Task: " << taskId << " finished\n";
-    // TODO: can we run multiple tasks?
     launched_ = false;
-//    driver->stop();
-  }
-
-  if (status.state() == mesos::TASK_LOST ||
+  } else if (status.state() == mesos::TASK_LOST ||
       status.state() == mesos::TASK_KILLED ||
       status.state() == mesos::TASK_FAILED) {
     LOG(WARNING) << "Aborting because task " << taskId
-    << " is in unexpected state "
-    << status.state() << " with reason " << status.reason()
-    << ", from source " << status.source() << '\n'
-    << status.message() << endl;
+                 << " is in unexpected state "
+                 << status.state() << " with reason " << status.reason()
+                 << ", from source " << status.source() << '\n'
+                 << status.message();
     driver->abort();
+  } else {
+    LOG(INFO) << status.message() << "(" << std::to_string(status.state())
+              << ")";
   }
   if (!implicitAcknowledgements_) {
     driver->acknowledgeStatusUpdate(status);
@@ -172,6 +172,12 @@ void MongoScheduler::error(SchedulerDriver *driver, const string &message)
   cout << message << endl;
 }
 
+namespace os {
+bool hasenv(const string &var)
+{
+  return os::getenv(var).isSome();
+}
+}  // namespace os
 
 int run_scheduler(const std::string &masterIp,
                   const std::string &config,
@@ -179,11 +185,15 @@ int run_scheduler(const std::string &masterIp,
 {
 
   mesos::FrameworkInfo framework;
-  framework.set_user(""); // Have Mesos fill in the current user.
+  std::unique_ptr<mesos::MesosSchedulerDriver> driver;
   std::ostringstream name;
+
   name << "MongoDB Framework (rev. " << MongoScheduler::REV << ")";
+
+  framework.set_user(""); // Have Mesos fill in the current user.
   framework.set_name(name.str());
   framework.set_role(role);
+
 
   if (os::hasenv("MESOS_CHECKPOINT")) {
     framework.set_checkpoint(
@@ -195,7 +205,6 @@ int run_scheduler(const std::string &masterIp,
   cout << "Enabling " << (implicitAcknowledgements ? "implicit" : "explicit")
   << " acknowledgments for status updates" << endl;
 
-  std::shared_ptr<mesos::MesosSchedulerDriver> driver;
   MongoScheduler scheduler(implicitAcknowledgements, role, config);
 
   if (os::hasenv("MESOS_AUTHENTICATE")) {
@@ -208,13 +217,19 @@ int run_scheduler(const std::string &masterIp,
     credential.set_principal(getenv("DEFAULT_PRINCIPAL"));
     credential.set_secret(getenv("DEFAULT_SECRET"));
     framework.set_principal(getenv("DEFAULT_PRINCIPAL"));
-    driver = std::make_shared<mesos::MesosSchedulerDriver>(
-        mesos::MesosSchedulerDriver(&scheduler, framework, masterIp,
-                                    implicitAcknowledgements, credential));
+    driver.reset(new mesos::MesosSchedulerDriver(
+        &scheduler,
+        framework,
+        masterIp,
+        implicitAcknowledgements,
+        credential));
   } else {
     framework.set_principal("mongodb-framework-cpp");
-    driver = std::make_shared<mesos::MesosSchedulerDriver>(&scheduler,
-                                                           framework, masterIp, implicitAcknowledgements);
+    driver.reset(new mesos::MesosSchedulerDriver(
+        &scheduler,
+        framework,
+        masterIp,
+        implicitAcknowledgements));
   }
   int status = driver->run() == mesos::DRIVER_STOPPED ? 0 : 1;
   // Ensure that the driver process terminates.
